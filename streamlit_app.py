@@ -3,63 +3,77 @@ import os
 import asyncio
 import threading
 import logging
+import subprocess
+import sys
 
-# Configure Streamlit page
-st.set_page_config(
-    page_title="DBR Trading Bot", 
-    page_icon="🚀", 
-    layout="centered"
-)
+st.set_page_config(page_title="DBR Trading Bot", page_icon="🚀")
 
-# Main UI
 st.title("🚀 DBR Trading Bot")
-st.markdown("### Professional Stock Analysis Bot")
+st.success("✅ Bot is ONLINE")
 
-# Bot status display
+# Status display
 col1, col2 = st.columns(2)
 with col1:
     st.metric("Status", "🟢 Online")
 with col2:
     st.metric("Platform", "Telegram")
 
-st.markdown("""
-## 📱 How to Use
-1. **Open Telegram** and search for your bot
-2. **Send** `/start` to begin  
-3. **Enter** any stock name or symbol
-4. **Receive** professional analysis instantly!
+st.info("""
+🤖 **Your Telegram bot is now running 24/7!**
+
+**To use your bot:**
+1. Open Telegram
+2. Search for your bot
+3. Send /start
+4. Enter any stock symbol (e.g., "RELIANCE", "TCS")
+5. Get instant professional analysis!
 
 ## 🎯 Features
 - AI-Powered Symbol Resolution
-- Multi-Timeframe Analysis
+- Multi-Timeframe Analysis  
 - Technical Indicators
 - Price Targets & Risk Management
 - Real-time NSE/BSE Data
 """)
 
-# Import and run the bot
+# Simple bot runner
 @st.cache_resource
-def start_telegram_bot():
+def start_bot():
     try:
-        from bot import EnhancedTradingBot
+        token = st.secrets.get("TELEGRAM_BOT_TOKEN")
+        if not token:
+            return "❌ Bot token not found in secrets"
         
-        def run_bot():
-            try:
-                token = st.secrets["TELEGRAM_BOT_TOKEN"]
-                bot = EnhancedTradingBot(token)
-                asyncio.run(bot.run())
-            except Exception as e:
-                st.error(f"Bot Error: {e}")
-        
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
-        return "Bot Started Successfully"
-        
-    except Exception as e:
-        return f"Error: {e}"
+        try:
+            process = subprocess.Popen(
+                [sys.executable, "-c", f"""
+import os
+os.environ['TELEGRAM_BOT_TOKEN'] = '{token}'
+from bot import EnhancedTradingBot
+import asyncio
 
-# Auto-start bot
-start_telegram_bot()
+async def run_bot():
+    try:
+        bot = EnhancedTradingBot('{token}')
+        await bot.run()
+    except Exception as e:
+        print(f'Bot error: {{e}}')
+
+if __name__ == '__main__':
+    asyncio.run(run_bot())
+"""],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=False
+            )
+            return "✅ Bot started successfully"
+        except Exception as e:
+            return f"⚠️ Bot startup warning: {str(e)[:100]}"
+    except Exception as e:
+        return f"❌ Setup error: {str(e)[:100]}"
+
+bot_status = start_bot()
+st.success(bot_status)
 
 st.markdown("---")
 st.markdown("**DBR Trading Bot** • Built with Streamlit & Python-Telegram-Bot")

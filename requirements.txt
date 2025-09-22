@@ -1,7 +1,8 @@
 streamlit
-python-telegram-bot[callback-data]==20.6
+python-telegram-bot==20.6
 pandas
 numpy
 yfinance
 requests
 python-dotenv
+ta
