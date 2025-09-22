@@ -2088,29 +2088,31 @@ class EnhancedTradingBot:
         logger.info("[INIT] Enhanced Trading Bot initialized")
     def _setup_background_bot(self):
         """Setup bot to run in background thread for Streamlit"""
-        def run_bot():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            # Create application with polling (not webhook)
-            self.application = Application.builder().token(self.token).build()
-            
-            # Add all handlers
-            self._add_handlers_to_application(self.application)
-            
-            # Run polling in this thread
-            self.application.run_polling(
-                timeout=30,
-                bootstrap_retries=5,
-                close_loop=False
-            )
-        
-        # Start bot in background thread
-        if not self.is_running:
-            bot_thread = Thread(target=run_bot, daemon=True)
-            bot_thread.start()
-            self.is_running = True
-            st.success("🤖 Bot started in background!")
+        def run_bot(self):
+            try:
+                # Initialize application with proper error handling
+                if not self.token:
+                    logger.error("❌ Bot token is missing!")
+                    return
+                    
+                self.application = Application.builder().token(self.token).build()
+                
+                if self.application is None:
+                    logger.error("❌ Failed to create Telegram application!")
+                    return
+                    
+                # Add all handlers
+                self.add_handlers_to_application(self.application)
+                
+                # Start polling
+                logger.info("🔄 Starting bot polling...")
+                self.application.run_polling(timeout=30, bootstrap_retries=3)
+                
+            except Exception as e:
+                logger.error(f"❌ Bot initialization failed: {e}")
+                import traceback
+                traceback.print_exc()
+
     def verify_professional_analysis(self):
         """Verify professional analysis module is working"""
         try:
