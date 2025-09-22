@@ -1,8 +1,9 @@
-streamlit
-python-telegram-bot==20.6
-pandas
-numpy
-yfinance
-requests
-python-dotenv
-ta
+streamlit==1.38.0
+python-telegram-bot==21.3
+requests==2.32.3
+pandas==2.2.2
+numpy==1.26.4
+yfinance==0.2.28
+ta==0.11.0
+python-dotenv==1.0.1
+peewee==3.17.6
