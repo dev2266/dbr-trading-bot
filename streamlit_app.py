@@ -80,18 +80,20 @@ class StreamlitBotManager:
                 """Run bot in background thread"""
                 try:
                     logger.info("Starting bot in polling mode for Streamlit...")
-                    
                     # Create new event loop for this thread
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     
-                    # Run bot with polling
-                    self.bot.run_polling()
-                    
+                    # Use the alias method if it exists
+                    if hasattr(self.bot, 'run_polling'):
+                        self.bot.run_polling()
+                    else:
+                        self.bot.run()  # Fallback to main run method
+                        
                 except Exception as e:
                     logger.error(f"Bot thread error: {e}")
                     self.is_running = False
-            
+           
             # Start bot in background thread
             self.bot_thread = threading.Thread(target=run_bot, daemon=True)
             self.bot_thread.start()
