@@ -28,26 +28,79 @@ import concurrent.futures
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
-import streamlit as st
+# STREAMLIT POLLING OPTIMIZATION - Issue #2
+if RUNNING_IN_STREAMLIT:
+    print("[BOT] ⚡ Applying Streamlit optimizations...")
+    os.environ["FORCE_POLLING"] = "True"
+    os.environ["DISABLE_WEBHOOKS"] = "True" 
+    os.environ["STREAMLIT_INTEGRATION"] = "True"
+    os.environ["TELEGRAM_POLLING_MODE"] = "True"
+
+# STREAMLIT COMPATIBILITY FIX - Issue #1
+# STREAMLIT COMPATIBILITY FIX - Issue #1
+STREAMLIT_MODE = os.getenv('STREAMLIT_MODE', 'False').lower() == 'true'
+RUNNING_IN_STREAMLIT = os.getenv('STREAMLIT_SERVER_PORT') is not None or STREAMLIT_MODE
+
+if not RUNNING_IN_STREAMLIT:
+    try:
+        import streamlit as st
+        STREAMLIT_AVAILABLE = True
+        print("[BOT] ✅ Streamlit imported for direct mode")
+    except ImportError:
+        STREAMLIT_AVAILABLE = False
+        st = None
+        print("[BOT] ⚠️ Streamlit not available in direct mode")
+else:
+    STREAMLIT_AVAILABLE = False
+    st = None
+    print("[BOT] 🔧 Running in Streamlit mode - skipping st import")
+
 import asyncio
 from threading import Thread
 import time
 
 # Streamlit configuration - ADD THIS SECTION:
 
-from perplexity_symbol_resolver import perplexity_resolver
-# ADD these missing files or replace with alternatives:
+# ROBUST IMPORT HANDLING - Issue #3
+try:
+    from perplexity_symbol_resolver import perplexity_resolver
+    PERPLEXITY_AVAILABLE = True
+    print("[BOT] ✅ Perplexity resolver loaded")
+except ImportError:
+    perplexity_resolver = None
+    PERPLEXITY_AVAILABLE = False
+    print("[BOT] ⚠️ Perplexity resolver not available - using fallback")
+
 try:
     from symbol_mapper import symbol_mapper
+    SYMBOL_MAPPER_AVAILABLE = True
+    print("[BOT] ✅ Symbol mapper loaded")
 except ImportError:
-    # Create mock symbol mapper
-    class MockSymbolMapper:
-        def is_valid_symbol(self, symbol): return True
-        def get_yahoo_symbol(self, symbol): return f"{symbol}.NS"
-        def search_symbols(self, query): return []
-        def get_all_symbols(self): return ['RELIANCE', 'TCS', 'HDFCBANK']
-    symbol_mapper = MockSymbolMapper()
+    # Enhanced fallback symbol mapper
+    class FallbackSymbolMapper:
+        def __init__(self):
+            self.nse_symbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'BHARTIARTL', 'ITC', 'KOTAKBANK', 'LT', 'AXISBANK']
 
+        def is_valid_symbol(self, symbol): 
+            return True
+
+        def get_yahoo_symbol(self, symbol): 
+            # Better symbol mapping for Indian stocks
+            symbol = symbol.upper().strip()
+            if not any(ext in symbol for ext in ['.NS', '.BO', '.BSE']):
+                return f"{symbol}.NS"  # Default to NSE
+            return symbol
+
+        def search_symbols(self, query): 
+            query = query.upper()
+            return [s for s in self.nse_symbols if query in s][:5]
+
+        def get_all_symbols(self): 
+            return self.nse_symbols
+
+    symbol_mapper = FallbackSymbolMapper()
+    SYMBOL_MAPPER_AVAILABLE = False
+    print("[BOT] ⚠️ Using fallback symbol mapper")
 
 # Telegram Bot Imports
 from telegram import (
@@ -315,12 +368,32 @@ class MockUpstoxDataFetcher:
     def get_live_quote(self, symbol): return {'error': 'Upstox not available'}
     def get_historical_data(self, *args): return None
 
-class MockSymbolMapper:
-    def is_valid_symbol(self, symbol): return True
-    def get_yahoo_symbol(self, symbol): return f"{symbol}.NS"
-    def search_symbols(self, query): return []
-    def get_all_symbols(self): return ['RELIANCE', 'TCS', 'HDFCBANK']
-    
+try:
+    from symbol_mapper import symbol_mapper
+    SYMBOL_MAPPER_AVAILABLE = True
+    print("[BOT] ✅ Symbol mapper loaded")
+except ImportError:
+    class FallbackSymbolMapper:
+        def __init__(self):
+            self.nse_symbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK']
+            
+        def is_valid_symbol(self, symbol): 
+            return True
+            
+        def get_yahoo_symbol(self, symbol): 
+            symbol = symbol.upper().strip()
+            if not any(ext in symbol for ext in ['.NS', '.BO', '.BSE']):
+                return f"{symbol}.NS"
+            return symbol
+            
+        def search_symbols(self, query): 
+            return [s for s in self.nse_symbols if query.upper() in s][:5]
+            
+        def get_all_symbols(self): 
+            return self.nse_symbols
+            
+    symbol_mapper = FallbackSymbolMapper()
+    print("[BOT] ⚠️ Using fallback symbol mapper")
 # Configure logging - FIXED
 class AzureCompatibleFormatter(logging.Formatter):
     """Azure-compatible logging formatter"""
@@ -434,22 +507,52 @@ class BotConfig:
     BACKUP_DATABASE_PATH: str = ""
     
     def __post_init__(self):
-        # FIXED: Set database paths dynamically using the global variables
-        self.DATABASE_PATH = DATABASE_PATH  # Use the global DATABASE_PATH variable
+        self.DATABASE_PATH = DATABASE_PATH
         self.BACKUP_DATABASE_PATH = f'{self.DATABASE_PATH}_backup.db'
-        
-        # Load from Azure App Settings (environment variables)
-        self.BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
-        self.UPSTOX_API_KEY = os.getenv('UPSTOX_API_KEY', '')
-        self.UPSTOX_API_SECRET = os.getenv('UPSTOX_API_SECRET', '')
-        self.UPSTOX_ACCESS_TOKEN = os.getenv('UPSTOX_ACCESS_TOKEN', '')
-        
-        # Admin IDs from environment
-        admin_ids_str = os.getenv('ADMIN_USER_IDS', '5435454091')  # Your ID here
+
+        # STREAMLIT-COMPATIBLE CONFIGURATION LOADING
+        if RUNNING_IN_STREAMLIT:
+            # When in Streamlit, try to get from streamlit secrets first
+            try:
+                # Import streamlit only when needed and available
+                if STREAMLIT_AVAILABLE:
+                    import streamlit as st_config
+                    self.BOT_TOKEN = st_config.secrets.get('TELEGRAM_BOT_TOKEN', os.getenv('TELEGRAM_BOT_TOKEN', ''))
+                    self.UPSTOX_API_KEY = st_config.secrets.get('UPSTOX_API_KEY', os.getenv('UPSTOX_API_KEY', ''))
+                    self.UPSTOX_API_SECRET = st_config.secrets.get('UPSTOX_API_SECRET', os.getenv('UPSTOX_API_SECRET', ''))
+                    self.UPSTOX_ACCESS_TOKEN = st_config.secrets.get('UPSTOX_ACCESS_TOKEN', os.getenv('UPSTOX_ACCESS_TOKEN', ''))
+                    admin_ids_str = st_config.secrets.get('ADMIN_USER_IDS', os.getenv('ADMIN_USER_IDS', '5435454091'))
+                    print("[BOT] ✅ Configuration loaded from Streamlit secrets")
+                else:
+                    # Fallback to environment variables
+                    self.BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+                    self.UPSTOX_API_KEY = os.getenv('UPSTOX_API_KEY', '')
+                    self.UPSTOX_API_SECRET = os.getenv('UPSTOX_API_SECRET', '')
+                    self.UPSTOX_ACCESS_TOKEN = os.getenv('UPSTOX_ACCESS_TOKEN', '')
+                    admin_ids_str = os.getenv('ADMIN_USER_IDS', '5435454091')
+                    print("[BOT] ⚠️ Configuration loaded from environment variables")
+            except Exception as e:
+                # If Streamlit secrets fail, use environment variables
+                print(f"[BOT] ⚠️ Streamlit secrets failed ({e}), using environment")
+                self.BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+                self.UPSTOX_API_KEY = os.getenv('UPSTOX_API_KEY', '')
+                self.UPSTOX_API_SECRET = os.getenv('UPSTOX_API_SECRET', '')
+                self.UPSTOX_ACCESS_TOKEN = os.getenv('UPSTOX_ACCESS_TOKEN', '')
+                admin_ids_str = os.getenv('ADMIN_USER_IDS', '5435454091')
+        else:
+            # Standard environment loading for direct execution
+            self.BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+            self.UPSTOX_API_KEY = os.getenv('UPSTOX_API_KEY', '')
+            self.UPSTOX_API_SECRET = os.getenv('UPSTOX_API_SECRET', '')
+            self.UPSTOX_ACCESS_TOKEN = os.getenv('UPSTOX_ACCESS_TOKEN', '')
+            admin_ids_str = os.getenv('ADMIN_USER_IDS', '5435454091')
+            print("[BOT] ✅ Configuration loaded from environment variables")
+
+        # Parse admin IDs
         try:
             self.ADMIN_USER_IDS = [int(id.strip()) for id in admin_ids_str.split(',') if id.strip()]
         except:
-            self.ADMIN_USER_IDS = [5435454091]  # Replace with your actual ID
+            self.ADMIN_USER_IDS = [5435454091]
         
         # Validate required settings
         if not self.BOT_TOKEN:
@@ -2062,7 +2165,18 @@ WAITING_FOR_ADD_FUNDS = 6
 
 class EnhancedTradingBot:
     def __init__(self, bot_token: str = None):
-        self.token = bot_token or st.secrets["TELEGRAM_BOT_TOKEN"]
+        # STREAMLIT-COMPATIBLE TOKEN LOADING
+        if RUNNING_IN_STREAMLIT:
+            try:
+                if STREAMLIT_AVAILABLE:
+                    import streamlit as st_config
+                    self.token = bot_token or st_config.secrets.get('TELEGRAM_BOT_TOKEN', os.getenv('TELEGRAM_BOT_TOKEN', ''))
+                else:
+                    self.token = bot_token or os.getenv('TELEGRAM_BOT_TOKEN', '')
+            except Exception as e:
+                self.token = bot_token or os.getenv('TELEGRAM_BOT_TOKEN', '')
+        else:
+            self.token = bot_token or os.getenv('TELEGRAM_BOT_TOKEN', '')
         self.application = None
         self.is_running = False
         # Initialize in background thread for Streamlit
@@ -2099,9 +2213,20 @@ class EnhancedTradingBot:
                 self.add_handlers_to_application(self.application)
                 
                 # Start polling
-                logger.info("🔄 Starting bot polling...")
-                self.application.run_polling(timeout=30, bootstrap_retries=3)
-                
+                # OPTIMIZED POLLING PARAMETERS
+                polling_params = {
+                    'timeout': 10 if RUNNING_IN_STREAMLIT else 30,
+                    'bootstrap_retries': 3 if RUNNING_IN_STREAMLIT else 5,
+                    'read_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
+                    'write_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
+                    'connect_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
+                    'pool_timeout': 20 if RUNNING_IN_STREAMLIT else 60,
+                    'drop_pending_updates': True
+                }
+
+                logger.info("Starting bot polling with optimized parameters...")
+                self.application.run_polling(**polling_params)
+
             except Exception as e:
                 logger.error(f"❌ Bot initialization failed: {e}")
                 import traceback
