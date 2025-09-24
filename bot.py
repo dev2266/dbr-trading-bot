@@ -28,16 +28,8 @@ import concurrent.futures
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
-# STREAMLIT POLLING OPTIMIZATION - Issue #2
-if RUNNING_IN_STREAMLIT:
-    print("[BOT] ⚡ Applying Streamlit optimizations...")
-    os.environ["FORCE_POLLING"] = "True"
-    os.environ["DISABLE_WEBHOOKS"] = "True" 
-    os.environ["STREAMLIT_INTEGRATION"] = "True"
-    os.environ["TELEGRAM_POLLING_MODE"] = "True"
 
-# STREAMLIT COMPATIBILITY FIX - Issue #1
-# STREAMLIT COMPATIBILITY FIX - Issue #1
+# STREAMLIT COMPATIBILITY FIX - Issue #1 (MOVED UP!)
 STREAMLIT_MODE = os.getenv('STREAMLIT_MODE', 'False').lower() == 'true'
 RUNNING_IN_STREAMLIT = os.getenv('STREAMLIT_SERVER_PORT') is not None or STREAMLIT_MODE
 
@@ -55,6 +47,13 @@ else:
     st = None
     print("[BOT] 🔧 Running in Streamlit mode - skipping st import")
 
+# STREAMLIT POLLING OPTIMIZATION - Issue #2
+if RUNNING_IN_STREAMLIT:  # <-- Now this works!
+    print("[BOT] ⚡ Applying Streamlit optimizations...")
+    os.environ["FORCE_POLLING"] = "True"
+    os.environ["DISABLE_WEBHOOKS"] = "True"
+    os.environ["STREAMLIT_INTEGRATION"] = "True"
+    os.environ["TELEGRAM_POLLING_MODE"] = "True"
 import asyncio
 from threading import Thread
 import time
