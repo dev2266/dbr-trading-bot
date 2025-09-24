@@ -6721,6 +6721,9 @@ Use /analyze SYMBOL or the menu buttons below!
             raise
         finally:
             logger.info("🧼 Bot cleanup completed")
+    def run_polling(self):
+        """Run polling mode - alias for runbot method for Streamlit compatibility"""
+        return self.runbot()
 
     def _add_handlers_to_application(self, application: Application):
         """Add all handlers to the provided application instance"""
