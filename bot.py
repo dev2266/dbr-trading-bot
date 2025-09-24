@@ -34,12 +34,6 @@ from threading import Thread
 import time
 
 # Streamlit configuration - ADD THIS SECTION:
-st.set_page_config(
-    page_title="DBR Trading Bot Dashboard",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 from perplexity_symbol_resolver import perplexity_resolver
 # ADD these missing files or replace with alternatives:
@@ -2112,6 +2106,16 @@ class EnhancedTradingBot:
                 logger.error(f"❌ Bot initialization failed: {e}")
                 import traceback
                 traceback.print_exc()
+    # Add this method to your EnhancedTradingBot class
+    async def debug_telegram_connection(self):
+        """Debug Telegram connection"""
+        try:
+            me = await self.application.bot.get_me()
+            logger.info(f"✅ Bot connected: @{me.username} ({me.id})")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Telegram connection failed: {e}")
+            return False
 
     def verify_professional_analysis(self):
         """Verify professional analysis module is working"""

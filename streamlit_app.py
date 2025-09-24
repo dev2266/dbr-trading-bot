@@ -11,7 +11,7 @@ import asyncio
 import logging
 from typing import Optional
 
-# Configure Streamlit page
+# Configure Streamlit page FIRST - BEFORE any other imports
 st.set_page_config(
     page_title="🚀 DBR Trading Bot",
     page_icon="🚀",
@@ -24,7 +24,7 @@ os.environ["STREAMLIT_MODE"] = "True"
 os.environ["FORCE_POLLING"] = "True"
 os.environ["AZURE_DEPLOYMENT"] = "False"
 
-# Import bot components
+# Import bot components AFTER page config
 try:
     from bot import EnhancedTradingBot
     BOT_AVAILABLE = True
