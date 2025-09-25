@@ -6703,7 +6703,8 @@ Use /analyze SYMBOL or the menu buttons below!
                 logger.info("✅ Application created successfully")
                 
             # Add handlers to application
-            self.add_handlers_to_application(self.application)
+            self.setup_application()
+
             
             logger.info("📡 Starting local polling...")
             
