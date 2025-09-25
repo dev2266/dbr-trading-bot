@@ -127,14 +127,6 @@ from functools import wraps
 import warnings
 import re
 # Enhanced yfinance fallback system
-try:
-    from yfinance_fallback import enhanced_yfinance
-    ENHANCED_YFINANCE_AVAILABLE = True
-    logger.info("✅ Enhanced yfinance fallback loaded")
-except ImportError:
-    ENHANCED_YFINANCE_AVAILABLE = False
-    enhanced_yfinance = None
-    logger.warning("⚠️ Enhanced yfinance fallback not available")
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle numpy and pandas data types"""
@@ -205,6 +197,15 @@ def ensure_target_prices(analysis_result):
             analysis_result['stop_loss'] = round(float(current_price - (atr * 1.0)), 2)
     
     return analysis_result
+# Enhanced yfinance fallback system
+try:
+    from yfinance_fallback import enhanced_yfinance
+    ENHANCED_YFINANCE_AVAILABLE = True
+    print("[BOT] ✅ Enhanced yfinance fallback loaded")
+except ImportError:
+    ENHANCED_YFINANCE_AVAILABLE = False
+    enhanced_yfinance = None
+    print("[BOT] ⚠️ Enhanced yfinance fallback not available")
 
 # Basic fallback analyzer for standard market data
 class StockAnalyzer:

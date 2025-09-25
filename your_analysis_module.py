@@ -102,6 +102,23 @@ except ImportError:
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
+# Add enhanced yfinance configuration
+YFINANCE_CONFIG = {
+    'timeout': 15,
+    'max_retries': 3,
+    'retry_delay': 2,
+    'periods': ['7d', '30d', '60d', '1y'],
+    'intervals': {
+        '5m': ['5m', '15m'],
+        '15m': ['15m', '30m'],
+        '30m': ['30m', '1h'],
+        '1h': ['1h', '1d'],
+        '4h': ['1h', '1d'],
+        '1d': ['1d', '1wk']
+    },
+    'fallback_enabled': True,
+    'minimum_candles': 20
+}
 
 # Global locks and monitors
 ENHANCED_ANALYSIS_LOCK = threading.RLock()
