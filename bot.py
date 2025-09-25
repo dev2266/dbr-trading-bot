@@ -2517,35 +2517,21 @@ class EnhancedTradingBot:
                 return result
 
             # Perform analysis with real-time data
-            if hist_data is not None and len(hist_data) >= 20:
-                analysis_result = await self._perform_real_upstox_analysis(
-                    symbol, interval, live_quote, hist_data
-                )
-            else:
-                # Fallback to basic analysis even with live quote
-                analysis_result = await self.perform_professional_basic_analysis(symbol, interval)
-                # But include the live quote data
-                analysis_result['live_quote_data'] = live_quote
+            if hist_data is not None and len(hist_data) >= 15:  # Lowered threshold
+                analysis_result = await self._perform_real_upstox_analysis(symbol, interval, live_quote, hist_data)
+                
+                if analysis_result and 'error' not in analysis_result:
+                    analysis_result.update({
+                        'data_source': 'upstox_professional_realtime',
+                        'strategy': 'UPSTOX_PROFESSIONAL_REALTIME',
+                        'candles_analyzed': len(hist_data),
+                        'live_price_confirmed': True
+                    })
+                    return analysis_result
 
-            # Mark as professional analysis with clean indicators
-            analysis_result.update({
-                'real_time_data': True,
-                'professional_grade': True,
-                'data_quality': 'real_time',
-                'advanced_features_enabled': True,
-                'strategy': 'PROFESSIONAL_REAL_TIME_ANALYSIS'
-            })
-
-            # Clean up any technical references in reasoning
-            if 'entry_reasoning' in analysis_result:
-                reasoning = analysis_result['entry_reasoning']
-                reasoning = reasoning.replace("Upstox", "real-time market data")
-                reasoning = reasoning.replace("Yahoo Finance", "market analysis")
-                reasoning = reasoning.replace("professional_", "")
-                analysis_result['entry_reasoning'] = reasoning
-
-            print(f"[DEBUG] ✅ Professional analysis completed for {symbol}")
-            return analysis_result
+            # If limited data but we have live quote, create minimal analysis
+            if live_quote and 'last_price' in live_quote:
+                return await self.create_minimal_upstox_analysis(symbol, live_quote, hist_data)
 
         except Exception as e:
             print(f"[DEBUG] ❌ Analysis error: {e}")
@@ -2559,6 +2545,47 @@ class EnhancedTradingBot:
                 'data_quality': 'standard'
             })
             return result
+    async def create_minimal_upstox_analysis(self, symbol: str, live_quote: dict, hist_data=None):
+        """Create minimal analysis using only live Upstox data"""
+        try:
+            current_price = live_quote.get('last_price', 0)
+            
+            analysis = {
+                'symbol': symbol,
+                'current_price': current_price,
+                'recommendation': 'HOLD',
+                'confidence': 60,
+                'data_source': 'upstox_live_minimal',
+                'strategy': 'UPSTOX_LIVE_MINIMAL', 
+                'entry_reasoning': f'Live Upstox data analysis. Current price: ₹{current_price}. Using {len(hist_data) if hist_data is not None else 0} available candles.',
+                'realtime_data': True,
+                'professional_grade': True,
+                'target_price': round(current_price * 1.05, 2),
+                'stop_loss': round(current_price * 0.95, 2),
+                'risk_level': 'Medium',
+                'timeframe': '1D',
+                'indicators_used': 'Live Price Analysis',
+                'upstox_enhanced': True,
+                'candles_available': len(hist_data) if hist_data is not None else 0
+            }
+            
+            # Add trend analysis if we have some data
+            if hist_data is not None and len(hist_data) >= 5:
+                recent_prices = hist_data['Close'].tail(5)
+                if current_price > recent_prices.mean():
+                    analysis['recommendation'] = 'BUY'
+                    analysis['confidence'] = 70
+                    analysis['entry_reasoning'] += ' Price above recent average - bullish.'
+                elif current_price < recent_prices.mean():
+                    analysis['recommendation'] = 'SELL'  
+                    analysis['confidence'] = 65
+                    analysis['entry_reasoning'] += ' Price below recent average - bearish.'
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"Minimal Upstox analysis failed: {e}")
+            return {'error': f'Minimal analysis failed: {str(e)}'}
 
     async def search_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /search command for symbol search"""
@@ -3713,7 +3740,7 @@ All trades are virtual. Real trading involves risk.
         try:
             current_price = live_quote['last_price']
             
-            if len(hist_data) < 20:
+            if len(hist_data) < 15:
                 return {'error': f'Insufficient Upstox data: {len(hist_data)} candles', 'symbol': symbol}
             
             # PROFESSIONAL TECHNICAL ANALYSIS with real-time Upstox data
