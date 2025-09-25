@@ -6693,34 +6693,42 @@ Use /analyze SYMBOL or the menu buttons below!
         try:
             logger.info("🔄 Starting bot in POLLING mode...")
             
-            # This method is only for local development
-            # Production uses webhook mode via the PTBWebhookRunner
-            
-            # Check if we're trying to run polling in production
-            if AZURE_DEPLOYMENT or IS_PRODUCTION:
-                logger.warning("⚠️ Polling mode should not be used in production!")
-                logger.info("💡 Use webhook mode for production deployment")
+            # Initialize application if not already done
+            if not self.token:
+                logger.error("💥 Bot token is missing!")
                 return
+                
+            if self.application is None:
+                self.application = Application.builder().token(self.token).build()
+                logger.info("✅ Application created successfully")
+                
+            # Add handlers to application
+            self.add_handlers_to_application(self.application)
             
-            # Local polling mode
             logger.info("📡 Starting local polling...")
-            self.application.run_polling(
-                timeout=30,
-                bootstrap_retries=5,
-                read_timeout=10,
-                write_timeout=10,
-                connect_timeout=10,
-                pool_timeout=5
-            )
+            
+            # Optimized polling parameters for Streamlit
+            polling_params = {
+                'timeout': 10 if RUNNING_IN_STREAMLIT else 30,
+                'bootstrap_retries': 3 if RUNNING_IN_STREAMLIT else 5,
+                'read_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
+                'write_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
+                'connect_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
+                'pool_timeout': 20 if RUNNING_IN_STREAMLIT else 60,
+                'drop_pending_updates': True
+            }
+            
+            self.application.run_polling(**polling_params)
             
         except KeyboardInterrupt:
             logger.info("🛑 Bot stopped by user")
         except Exception as e:
-            logger.error(f"❌ Bot run failed: {e}")
+            logger.error(f"💥 Bot run failed: {e}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
             raise
         finally:
-            logger.info("🧼 Bot cleanup completed")
+            logger.info("🧹 Bot cleanup completed")
+
     def run_polling(self):
         """Run polling mode - alias for run method for Streamlit compatibility"""
         return self.run()
