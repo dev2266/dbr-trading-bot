@@ -231,7 +231,7 @@ class StockAnalyzer:
                 pass
 
             yf_interval, period = self._map_interval()
-            hist = yf.Ticker(ticker).history(period=period, interval=yf_interval, auto_adjust=True, threads=False)
+            hist = yf.Ticker(ticker).history(period=period, interval=yf_interval, auto_adjust=True)
             if hist is None or hist.empty:
                 return {'error': f'No data for {self.symbol}', 'symbol': self.symbol}
 
