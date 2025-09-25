@@ -6716,7 +6716,8 @@ Use /analyze SYMBOL or the menu buttons below!
                 'write_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
                 'connect_timeout': 15 if RUNNING_IN_STREAMLIT else 30,
                 'pool_timeout': 20 if RUNNING_IN_STREAMLIT else 60,
-                'drop_pending_updates': True
+                'drop_pending_updates': True,
+                'stop_signals': None 
             }
             
             self.application.run_polling(**polling_params)
